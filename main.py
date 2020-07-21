@@ -4,7 +4,6 @@ import numpy as np
 import os
 import json
 
-
 # Preload models for performance
 print("[INFO] loading YOLO...")
 net = cv2.dnn.readNetFromDarknet("./yolo_configs/yolov3-obj.cfg", "./yolo_configs/posture_yolov3.weights")
@@ -23,11 +22,10 @@ COLORS = [
 
 def rescale_image(input_img: np.ndarray) -> np.ndarray:
     (h, w) = input_img.shape[:2]
-    return input_img if h < 1000 else cv2.resize(input_img, (int(w / (w[0] + 1)), int(h / (h[0] + 1))))
+    return input_img if h < 1000 else cv2.resize(input_img, (int(w / (int(str(h)[0]) + 1)), int(h / (int(str(h)[0]) + 1))))
 
 
 def predict_yolo(input_img: np.ndarray) -> list:
-    # determine only the *output* layer names that we need from YOLO
     ln = net.getLayerNames()
     ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
     blob = cv2.dnn.blobFromImage(input_img, 1 / 255.0, (256, 256), swapRB=True, crop=False)

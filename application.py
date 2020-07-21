@@ -11,8 +11,10 @@ ALLOWED_EXTENSIONS = ["jpg", "jpeg", "bmp", "png"]
 
 
 @app.route("/")
-def hello():
-    return "Hello World!"
+def welcome():
+    return jsonify([
+            {"message": "Welcome to sitting posture API. Use dont abuse."}
+        ])
 
 
 def allowed_file(filename):
@@ -36,7 +38,9 @@ def upload_file():
 
         return jsonify(results)
 
-    return False
+    return jsonify([
+        {"message": "Something went wrong"}
+    ])
 
 
 if __name__ == "__main__":
