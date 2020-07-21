@@ -4,6 +4,7 @@ import numpy as np
 import os
 import json
 
+
 # Preload models for performance
 print("[INFO] loading YOLO...")
 net = cv2.dnn.readNetFromDarknet("./yolo_configs/yolov3-obj.cfg", "./yolo_configs/posture_yolov3.weights")
