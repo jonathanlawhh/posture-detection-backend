@@ -4,6 +4,8 @@ import numpy as np
 import os
 import json
 
+INPUT_SIZE = 256
+
 # Preload models for performance
 print("[INFO] loading YOLO...")
 net = cv2.dnn.readNetFromDarknet("./yolo_configs/yolov3-obj.cfg", "./yolo_configs/posture_yolov3.weights")
@@ -16,19 +18,21 @@ with open("./yolo_configs/posture.names", 'rt') as f:
 COLORS = [
     [0, 200, 0], [20, 45, 144],
     [157, 224, 173], [0, 0, 232],
-    [26, 147, 111], [64, 100, 44]
+    [26, 147, 111], [40, 44, 100]
 ]
 
 
 def rescale_image(input_img: np.ndarray) -> np.ndarray:
     (h, w) = input_img.shape[:2]
-    return input_img if h < 1000 else cv2.resize(input_img, (int(w / (int(str(h)[0]) + 1)), int(h / (int(str(h)[0]) + 1))))
+    # Resize if height is more than 1000px. First numerical + 1, will be the ratio to scale to.
+    # Eg. 2540px, 2540px / ( 2 + 1 ) = new height.
+    return input_img if h < 1000 else cv2.resize(input_img, (int(w / (int(str(h)[0]) + 2)), int(h / (int(str(h)[0]) + 2))))
 
 
 def predict_yolo(input_img: np.ndarray) -> list:
     ln = net.getLayerNames()
     ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
-    blob = cv2.dnn.blobFromImage(input_img, 1 / 255.0, (256, 256), swapRB=True, crop=False)
+    blob = cv2.dnn.blobFromImage(input_img, 1 / 255.0, (INPUT_SIZE, INPUT_SIZE), swapRB=True, crop=False)
     net.setInput(blob)
     start = time.time()
     layer_outputs = net.forward(ln)
@@ -81,13 +85,13 @@ def draw_bound(input_img: np.ndarray, layer_outputs: list, confidence_level: flo
 
 
 def predict(filename):
-    image = cv2.imread(os.path.join("input", filename))
+    image = cv2.imread(os.path.join(os.getcwd(), "input", filename))
     image = rescale_image(image)
 
     layer_outputs = predict_yolo(image)
     results = draw_bound(image, layer_outputs, 0.5, 0.4)
 
-    output = os.path.join("static/output", filename)
+    output = os.path.join("/static", "output", filename)
     cv2.imwrite(output, results[0])
     return [{
         "prediction": json.dumps(results[1]),
@@ -96,9 +100,12 @@ def predict(filename):
 
 
 if __name__ == "__main__":
-    for f in os.listdir("./input"):
-        image = cv2.imread("./input/" + f)
+    for f in os.listdir(os.path.join(os.getcwd(), "input")):
+        image = cv2.imread(os.path.join(os.getcwd(), "input", f))
         image = rescale_image(image)
+
+        # Remove some noise to allow better processing
+        cv2.blur(image, (1, 1), image)
 
         layer_outputs = predict_yolo(image)
         results = draw_bound(image, layer_outputs, 0.5, 0.4)

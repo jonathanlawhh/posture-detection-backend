@@ -33,7 +33,7 @@ def upload_file():
     file = request.files['file']
     if file and allowed_file(file.filename):
         filename = uuid.uuid4().hex + ".png"
-        file.save(os.path.join("input", filename))
+        file.save(os.path.join(os.getcwd(), "input", filename))
         results = m.predict(filename)
 
         return jsonify(results)
@@ -44,4 +44,4 @@ def upload_file():
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=80)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
