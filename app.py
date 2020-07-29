@@ -1,7 +1,6 @@
 import main as m
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import uuid
 import os
 
 app = Flask(__name__)
@@ -32,10 +31,7 @@ def upload_file():
 
     file = request.files['file']
     if file and allowed_file(file.filename):
-        filename = uuid.uuid4().hex + ".png"
-        file.save(os.path.join(os.getcwd(), "input", filename))
-        results = m.predict(filename)
-
+        results = m.predict(file)
         return jsonify(results)
 
     return jsonify([

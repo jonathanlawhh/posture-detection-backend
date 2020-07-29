@@ -3,6 +3,7 @@ import time
 import numpy as np
 import os
 import json
+import base64
 
 INPUT_SIZE = 256
 
@@ -34,10 +35,7 @@ def predict_yolo(input_img: np.ndarray) -> list:
     ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
     blob = cv2.dnn.blobFromImage(input_img, 1 / 255.0, (INPUT_SIZE, INPUT_SIZE), swapRB=True, crop=False)
     net.setInput(blob)
-    start = time.time()
     layer_outputs = net.forward(ln)
-    end = time.time()
-    print("[INFO] YOLO took {:.6f} seconds".format(end - start))
     return layer_outputs
 
 
@@ -84,18 +82,19 @@ def draw_bound(input_img: np.ndarray, layer_outputs: list, confidence_level: flo
     return [input_img, results]
 
 
-def predict(filename):
-    image = cv2.imread(os.path.join(os.getcwd(), "input", filename))
-    image = rescale_image(image)
+def predict(f) -> [{}]:
+    im = cv2.imdecode(np.fromstring(f.read(), np.uint8), cv2.IMREAD_COLOR)
+    im = rescale_image(im)
 
-    layer_outputs = predict_yolo(image)
-    results = draw_bound(image, layer_outputs, 0.5, 0.4)
+    layer_outputs = predict_yolo(im)
+    results = draw_bound(im, layer_outputs, 0.5, 0.4)
 
-    output = os.path.join("/static", "output", filename)
-    cv2.imwrite(output, results[0])
+    ret, buffer = cv2.imencode('.png', results[0])
+    encoded_im = base64.b64encode(buffer).decode()
+
     return [{
         "prediction": json.dumps(results[1]),
-        "url": output
+        "image": encoded_im
     }]
 
 
@@ -107,8 +106,11 @@ if __name__ == "__main__":
         # Remove some noise to allow better processing
         cv2.blur(image, (1, 1), image)
 
+        start = time.time()
         layer_outputs = predict_yolo(image)
         results = draw_bound(image, layer_outputs, 0.5, 0.4)
+        end = time.time()
+        print("[INFO] YOLO took {:.6f} seconds".format(end - start))
 
         print(f, results[1])
 

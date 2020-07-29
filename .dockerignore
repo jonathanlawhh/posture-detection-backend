@@ -7,5 +7,5 @@ __pycache__
 venv
 .idea
 
-*.PNG
-*.jpg
+input
+static
