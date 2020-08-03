@@ -9,7 +9,7 @@ COPY . ./
 
 # Install production dependencies.
 RUN apt update && apt install -y libgtk2.0-dev
-RUN pip install Flask gunicorn flask-cors numpy opencv-python
+RUN pip install Flask gunicorn flask-cors numpy opencv-python-headless
 
 # Start gunicorn server. 1CPU 8 threads
 CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app
