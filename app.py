@@ -1,4 +1,4 @@
-import main as m
+import main
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
@@ -31,7 +31,7 @@ def upload_file():
 
     file = request.files['file']
     if file and allowed_file(file.filename):
-        results = m.predict(file)
+        results = main.predict(file)
         return jsonify(results)
 
     return jsonify([

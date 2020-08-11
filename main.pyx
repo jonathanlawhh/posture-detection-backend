@@ -1,11 +1,12 @@
 import cv2
 import time
 import numpy as np
-import os
+cimport numpy as np
 import json
 import base64
 
-INPUT_SIZE = 256
+cdef int INPUT_SIZE = 256
+cdef list NAMES = [str]
 
 # Preload models for performance
 print("[INFO] loading YOLO...")
@@ -16,34 +17,46 @@ with open("./yolo_configs/posture.names", 'rt') as f:
     NAMES = f.read().rstrip('\n').split('\n')
 
 # Assign colors for drawing bounding boxes
-COLORS = [
+cdef list COLORS = [
     [0, 200, 0], [20, 45, 144],
     [157, 224, 173], [0, 0, 232],
     [26, 147, 111], [40, 44, 100]
 ]
 
 
-def rescale_image(input_img: np.ndarray) -> np.ndarray:
-    (h, w) = input_img.shape[:2]
+cdef np.ndarray[unsigned char, ndim=3] rescale_image(np.ndarray[unsigned char, ndim=3] input_img):
+    cdef int h = input_img.shape[0]
+    cdef int w = input_img.shape[1]
+
     # Resize if height is more than 1000px. First numerical + 1, will be the ratio to scale to.
     # Eg. 2540px, 2540px / ( 2 + 1 ) = new height.
     return input_img if h < 1000 else cv2.resize(input_img, (int(w / (int(str(h)[0]) + 2)), int(h / (int(str(h)[0]) + 2))))
 
 
-def predict_yolo(input_img: np.ndarray) -> list:
-    ln = net.getLayerNames()
+cdef list predict_yolo(np.ndarray[unsigned char, ndim=3] input_img):
+    cdef list ln = net.getLayerNames()
     ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
-    blob = cv2.dnn.blobFromImage(input_img, 1 / 255.0, (INPUT_SIZE, INPUT_SIZE), swapRB=True, crop=False)
+
+    cdef np.ndarray blob = cv2.dnn.blobFromImage(input_img, 1 / 255.0, (INPUT_SIZE, INPUT_SIZE), swapRB=True, crop=False)
     net.setInput(blob)
-    layer_outputs = net.forward(ln)
-    return layer_outputs
+
+    return net.forward(ln)
 
 
-def draw_bound(input_img: np.ndarray, layer_outputs: list, confidence_level: float, threshold: float) -> [np.ndarray, list]:
-    boxes = []
-    confidences = []
-    class_id = []
-    (H, W) = input_img.shape[:2]
+cdef list draw_bound(np.ndarray[unsigned char, ndim=3] input_img, list layer_outputs, float confidence_level, float threshold):
+    cdef list boxes = []
+    cdef list confidences = []
+    cdef list class_id = []
+    cdef list results = []
+    cdef list color = []
+
+    cdef int H = input_img.shape[0]
+    cdef int W = input_img.shape[1]
+    cdef int x, y, centerX, centerY, width, height
+
+    cdef float confidence
+
+    cdef str text
 
     for output in layer_outputs:
         for detection in output:
@@ -64,8 +77,7 @@ def draw_bound(input_img: np.ndarray, layer_outputs: list, confidence_level: flo
                 class_id.append(class_ids)
 
     # Non maxima
-    idxs = cv2.dnn.NMSBoxes(boxes, confidences, confidence_level, threshold)
-    results = []
+    cdef np.ndarray idxs = cv2.dnn.NMSBoxes(boxes, confidences, confidence_level, threshold)
 
     if len(idxs) > 0:
         for i in idxs.flatten():
@@ -82,40 +94,20 @@ def draw_bound(input_img: np.ndarray, layer_outputs: list, confidence_level: flo
     return [input_img, results]
 
 
-def predict(f) -> [{}]:
-    im = cv2.imdecode(np.fromstring(f.read(), np.uint8), cv2.IMREAD_COLOR)
+cpdef list predict(f):
+    cdef double start = time.time()
+    cdef np.ndarray[unsigned char, ndim=3] im = cv2.imdecode(np.fromstring(f.read(), np.uint8), cv2.IMREAD_COLOR)
     im = rescale_image(im)
 
-    layer_outputs = predict_yolo(im)
-    results = draw_bound(im, layer_outputs, 0.5, 0.4)
+    cdef list layer_outputs = predict_yolo(im)
+    cdef list results = draw_bound(im, layer_outputs, 0.5, 0.4)
 
     ret, buffer = cv2.imencode('.png', results[0])
-    encoded_im = base64.b64encode(buffer).decode()
+    cdef str encoded_im = base64.b64encode(buffer).decode()
+    cdef double end = time.time()
 
     return [{
         "prediction": json.dumps(results[1]),
-        "image": encoded_im
+        "image": encoded_im,
+        "duration": "{:.4f} seconds".format(end - start)
     }]
-
-
-if __name__ == "__main__":
-    for f in os.listdir(os.path.join(os.getcwd(), "input")):
-        image = cv2.imread(os.path.join(os.getcwd(), "input", f))
-        image = rescale_image(image)
-
-        # Remove some noise to allow better processing
-        cv2.blur(image, (1, 1), image)
-
-        start = time.time()
-        layer_outputs = predict_yolo(image)
-        results = draw_bound(image, layer_outputs, 0.5, 0.4)
-        end = time.time()
-        print("[INFO] YOLO took {:.6f} seconds".format(end - start))
-
-        print(f, results[1])
-
-        # show the output image
-        cv2.imshow(f, results[0])
-        print("")
-
-    cv2.waitKey(0)

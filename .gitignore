@@ -1,6 +1,8 @@
 # Custom folders
 input/
 static/output/
+publish.bat
+archive/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
